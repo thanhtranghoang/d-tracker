@@ -521,6 +521,11 @@
       padding: var(--space-4);
     }
 
+    .donors-scroll {
+      max-height: 420px;
+      overflow-y: auto;
+    }
+
     .donor-row {
       display: grid;
       grid-template-columns: 44px 1fr auto;
@@ -931,7 +936,7 @@
     </div>
 
     <p class="section-title">🌙 Donor trên 500k</p>
-    <div class="donors-card" id="over500kDonorsCard">
+    <div class="donors-card donors-scroll" id="over500kDonorsCard">
       <div class="skeleton skeleton-row"></div>
     </div>
 
@@ -979,16 +984,13 @@
 const TARGET_MILESTONES = [
   70_000_000,
   100_000_000,
-  120_000_000,
-  250_000_000
+  150_000_000
 ];
 
 let privatePassword = sessionStorage.getItem("privatePassword") || "";
 
 const root = document.documentElement;
 
-// Mặc định dark mode trước.
-// Nếu user đã từng chọn light/dark thì vẫn nhớ lựa chọn đó.
 let theme = localStorage.getItem("dtTheme") || "dark";
 
 root.setAttribute("data-theme", theme);
