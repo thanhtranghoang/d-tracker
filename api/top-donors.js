@@ -9,8 +9,8 @@ module.exports = async (req, res) => {
     return res.status(200).end();
   }
 
-  const PAGE_SIZE = 100;
-  const MAX_PAGES = Number(process.env.MAX_TIMO_PAGES || 30);
+  const PAGE_SIZE = Number(process.env.TIMO_PAGE_SIZE || 100);
+  const MAX_PAGES = Number(process.env.MAX_TIMO_PAGES || 50);
 
   const HASH_VERIFY_CODE =
     process.env.TIMO_HASH_VERIFY_CODE ||
@@ -150,22 +150,33 @@ module.exports = async (req, res) => {
       throw new Error(`Timo API HTTP ${response.status}: ${text.slice(0, 300)}`);
     }
 
+    let json;
+
     try {
-      return JSON.parse(text);
+      json = JSON.parse(text);
     } catch (error) {
       throw new Error(`Cannot parse Timo JSON: ${text.slice(0, 300)}`);
     }
+
+    return {
+      json,
+      txns: pickTransactions(json),
+
+      // Cursor phân trang đúng của Timo
+      nextXidIndex:
+        Number(json?.data?.lastIndex || json?.lastIndex || 0) || null
+    };
   }
 
   try {
     const allTxns = [];
     const seen = new Set();
 
-    for (let pageIndex = 0; pageIndex < MAX_PAGES; pageIndex++) {
-      const xidIndex = pageIndex * PAGE_SIZE;
+    let xidIndex = 0;
 
-      const json = await fetchPage(xidIndex);
-      const txns = pickTransactions(json);
+    for (let pageIndex = 0; pageIndex < MAX_PAGES; pageIndex++) {
+      const page = await fetchPage(xidIndex);
+      const txns = page.txns;
 
       if (!txns.length) break;
 
@@ -184,7 +195,11 @@ module.exports = async (req, res) => {
         }
       }
 
-      if (txns.length < PAGE_SIZE) break;
+      if (!page.nextXidIndex || page.nextXidIndex === xidIndex) {
+        break;
+      }
+
+      xidIndex = page.nextXidIndex;
     }
 
     const validTxns = allTxns.filter(
@@ -217,16 +232,18 @@ module.exports = async (req, res) => {
       over3m,
       over2m,
 
-      // Alias cũ để nếu HTML nào còn gọi over5m thì không vỡ.
+      // Alias cũ để HTML cũ không bị vỡ nếu còn gọi over5m
       over5m: over3m,
 
       donorCount: donors.length,
+
       debug: {
         rawTxnCount: allTxns.length,
         validTxnCount: validTxns.length,
         fromDate: TOP_DONOR_FROM_DATE,
         pageSize: PAGE_SIZE,
-        maxPages: MAX_PAGES
+        maxPages: MAX_PAGES,
+        paginationMode: "lastIndex"
       }
     });
   } catch (error) {
