@@ -17,22 +17,28 @@ module.exports = async (req, res) => {
   // CONFIG
   // =========================================
 
-  // Tổng quỹ hiện tại (set tay)
-  // KHÔNG tự cộng thêm fetched txns
-  const BASE_TOTAL_AMOUNT = Number(
-    process.env.BASE_TOTAL_AMOUNT || 84384318
+  // Tổng donate đã chốt tại:
+  // 19/05/2026 13:40 GMT+7
+  const BASE_RAISED_AMOUNT = Number(
+    process.env.BASE_RAISED_AMOUNT || 84452318
   );
+
+  // Chỉ cộng donate sau thời điểm này
+  const RAISED_TRACK_FROM_DATE =
+    process.env.RAISED_TRACK_FROM_DATE ||
+    "2026-05-19";
 
   // Goal
   const TARGET_AMOUNT = Number(
     process.env.TARGET_AMOUNT || 270000000
   );
 
-  // Tính top donor từ ngày này
+  // Top donor từ ngày này
   const TOP_DONOR_FROM_DATE =
-    process.env.TOP_DONOR_FROM_DATE || "2026-05-18";
+    process.env.TOP_DONOR_FROM_DATE ||
+    "2026-05-19";
 
-  // Hash verify code
+  // Hash verify
   const HASH_VERIFY_CODE =
     process.env.TIMO_HASH_VERIFY_CODE ||
     "8e5a81d78e1eec11082e66ca9bd5a85b6c7a89c6f803a66a0fc0d219745c2a5f85294ef81454db81f695b76fadecbb59ee58264e4cf545765bb6b690eba6ebed";
@@ -169,13 +175,30 @@ module.exports = async (req, res) => {
     );
   }
 
-  function isAfterStartDate(txn) {
+  function isAfterTopDonorDate(txn) {
     if (!txn._groupDate) {
       return false;
     }
 
     const start = new Date(
-      TOP_DONOR_FROM_DATE + "T00:00:00+07:00"
+      TOP_DONOR_FROM_DATE +
+      "T00:00:00+07:00"
+    );
+
+    return (
+      txn._groupDate.getTime() >=
+      start.getTime()
+    );
+  }
+
+  function isAfterRaisedTrackDate(txn) {
+    if (!txn._groupDate) {
+      return false;
+    }
+
+    const start = new Date(
+      RAISED_TRACK_FROM_DATE +
+      "T13:40:00+07:00"
     );
 
     return (
@@ -275,12 +298,39 @@ module.exports = async (req, res) => {
     );
 
     // =========================================
-    // TOTAL
+    // CURRENT BALANCE (REALTIME)
     // =========================================
 
-    // Tổng hiện tại set tay
-    // KHÔNG auto cộng thêm txns
-    const totalAmount = BASE_TOTAL_AMOUNT;
+    let currentBalance =
+      BASE_RAISED_AMOUNT;
+
+    if (incomingTxns.length > 0) {
+      const latestTxn = incomingTxns[0];
+
+      currentBalance = Number(
+        latestTxn.remainingAmount || 0
+      );
+    }
+
+    // =========================================
+    // TOTAL RAISED (ONLY INCREASE)
+    // =========================================
+
+    const raisedTxns = incomingTxns.filter(
+      isAfterRaisedTrackDate
+    );
+
+    const raisedDelta = raisedTxns.reduce(
+      (sum, txn) =>
+        sum + getAmount(txn),
+      0
+    );
+
+    // Tổng donate tích lũy
+    // chỉ tăng
+    const totalRaisedAmount =
+      BASE_RAISED_AMOUNT +
+      raisedDelta;
 
     // =========================================
     // TRANSACTIONS
@@ -302,7 +352,7 @@ module.exports = async (req, res) => {
     const donorMap = {};
 
     const topDonorTxns = incomingTxns.filter(
-      isAfterStartDate
+      isAfterTopDonorDate
     );
 
     for (const txn of topDonorTxns) {
@@ -355,7 +405,12 @@ module.exports = async (req, res) => {
     return res.status(200).json({
       success: true,
 
-      totalAmount,
+      // Tổng donate tích lũy
+      // chỉ tăng
+      totalRaisedAmount,
+
+      // Số dư realtime
+      currentBalance,
 
       targetAmount: TARGET_AMOUNT,
 
@@ -375,8 +430,14 @@ module.exports = async (req, res) => {
       debug: {
         source: TIMO_TXN_URL,
 
-        baseAmount:
-          BASE_TOTAL_AMOUNT,
+        baseRaisedAmount:
+          BASE_RAISED_AMOUNT,
+
+        raisedDelta,
+
+        totalRaisedAmount,
+
+        currentBalance,
 
         fetchedAmount,
 
@@ -387,6 +448,9 @@ module.exports = async (req, res) => {
 
         topDonorFromDate:
           TOP_DONOR_FROM_DATE,
+
+        raisedTrackFromDate:
+          RAISED_TRACK_FROM_DATE,
 
         firstResponsePreview:
           firstPreview
