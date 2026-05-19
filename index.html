@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <title>LIGHT UP THE SKY DONATE PROGRESS</title>
+  <title>Light up the sky donate progress</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -65,9 +65,10 @@
       --success: #9efcff;
 
       --shadow-sm: 0 12px 34px rgba(0, 0, 0, 0.26);
-      --overlay-top: rgba(2, 8, 22, 0.18);
-      --overlay-mid: rgba(2, 8, 22, 0.38);
-      --overlay-bottom: rgba(2, 8, 22, 0.72);
+
+      --overlay-top: rgba(2, 8, 22, 0.12);
+      --overlay-mid: rgba(2, 8, 22, 0.30);
+      --overlay-bottom: rgba(2, 8, 22, 0.62);
     }
 
     [data-theme="light"] {
@@ -80,8 +81,8 @@
       --border: rgba(255, 255, 255, 0.36);
 
       --text: #06122b;
-      --muted: rgba(6, 18, 43, 0.72);
-      --faint: rgba(6, 18, 43, 0.54);
+      --muted: rgba(6, 18, 43, 0.74);
+      --faint: rgba(6, 18, 43, 0.56);
 
       --accent: #006dff;
       --accent-h: #0047b8;
@@ -93,9 +94,10 @@
       --success: #007f7a;
 
       --shadow-sm: 0 12px 34px rgba(0, 20, 60, 0.18);
-      --overlay-top: rgba(255, 255, 255, 0.18);
-      --overlay-mid: rgba(255, 255, 255, 0.30);
-      --overlay-bottom: rgba(6, 18, 43, 0.44);
+
+      --overlay-top: rgba(255, 255, 255, 0.12);
+      --overlay-mid: rgba(255, 255, 255, 0.24);
+      --overlay-bottom: rgba(6, 18, 43, 0.38);
     }
 
     *,
@@ -127,12 +129,13 @@
       position: fixed;
       inset: 0;
       z-index: -2;
+      background-color: #06112b;
       background-image: url("/light-up-bg.png");
-      background-size: cover;
-      background-position: center center;
+      background-size: contain;
+      background-position: center top;
       background-repeat: no-repeat;
       opacity: 1;
-      filter: saturate(1.1) contrast(1.02) brightness(1.02);
+      filter: saturate(1.1) contrast(1.02) brightness(1.04);
     }
 
     body::after {
@@ -889,9 +892,9 @@ let privatePassword = sessionStorage.getItem("privatePassword") || "";
 
 const root = document.documentElement;
 
-let theme =
-  localStorage.getItem("dtTheme") ||
-  (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+// Mặc định dark mode trước.
+// Nếu user đã từng chọn light/dark thì vẫn nhớ lựa chọn đó.
+let theme = localStorage.getItem("dtTheme") || "dark";
 
 root.setAttribute("data-theme", theme);
 
