@@ -161,8 +161,6 @@ module.exports = async (req, res) => {
     return {
       json,
       txns: pickTransactions(json),
-
-      // Cursor phân trang đúng của Timo
       nextXidIndex:
         Number(json?.data?.lastIndex || json?.lastIndex || 0) || null
     };
@@ -225,12 +223,15 @@ module.exports = async (req, res) => {
     const top3 = donors.slice(0, 3);
     const over3m = donors.filter((d) => d.amount >= 3000000);
     const over2m = donors.filter((d) => d.amount >= 2000000);
+    const over500k = donors.filter((d) => d.amount >= 500000);
 
     return res.status(200).json({
       success: true,
+
       top3,
       over3m,
       over2m,
+      over500k,
 
       // Alias cũ để HTML cũ không bị vỡ nếu còn gọi over5m
       over5m: over3m,
