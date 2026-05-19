@@ -1,50 +1,32 @@
 module.exports = async (req, res) => {
-  // CORS + cache cho Vercel
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  res.setHeader("Cache-Control", "s-maxage=15, stale-while-revalidate");
+  res.setHeader("Cache-Control", "no-store");
 
   if (req.method === "OPTIONS") {
     res.status(200).end();
     return;
   }
 
-  const TIMO_VERIFY_CODE = process.env.TIMO_VERIFY_CODE || "1iyeys6er88q9";
   const TARGET_AMOUNT = Number(process.env.TARGET_AMOUNT || 270000000);
 
   const TIMO_TXN_URL = "https://app2.timo.vn/moneypots/public/txn";
 
+  const HASH_VERIFY_CODE =
+    process.env.TIMO_HASH_VERIFY_CODE ||
+    "8e5a81d78e1eec11082e66ca9bd5a85b6c7a89c6f803a66a0fc0d219745c2a5f85294ef81454db81f695b76fadecbb59ee58264e4cf545765bb6b690eba6ebed";
+
   const headers = {
     "Content-Type": "application/json; charset=UTF-8",
-    "Accept": "application/json, text/plain",
+    Accept: "application/json, text/plain",
     "Accept-Language": "en",
-    "Origin": "https://share.timo.vn",
-    "Referer": "https://share.timo.vn/",
+    Origin: "https://share.timo.vn",
+    Referer: "https://share.timo.vn/",
     "User-Agent":
       "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Mobile Safari/537.36"
   };
-
-  // Nếu bạn lấy được Payload thật trong DevTools, cho vào env:
-  // TIMO_TXN_PAYLOAD={"verifyCode":"1iyeys6er88q9","page":0,"size":1000}
-  const payloadCandidates = [];
-
-  if (process.env.TIMO_TXN_PAYLOAD) {
-    try {
-      payloadCandidates.push(JSON.parse(process.env.TIMO_TXN_PAYLOAD));
-    } catch (e) {
-      console.warn("TIMO_TXN_PAYLOAD không phải JSON hợp lệ:", e.message);
-    }
-  }
-
-  payloadCandidates.push(
-    { verifyCode: TIMO_VERIFY_CODE, size: 1000 },
-    { verifyCode: TIMO_VERIFY_CODE, page: 0, size: 1000 },
-    { verifyCode: TIMO_VERIFY_CODE, pageNumber: 0, pageSize: 1000 },
-    { code: TIMO_VERIFY_CODE, size: 1000 },
-    { moneyPotCode: TIMO_VERIFY_CODE, size: 1000 }
-  );
 
   function pickArray(obj) {
     if (!obj || typeof obj !== "object") return [];
@@ -71,15 +53,18 @@ module.exports = async (req, res) => {
       t.transactionAmount ??
       t.creditAmount ??
       t.value ??
+      t.money ??
       0;
 
     if (typeof raw === "number") return raw;
 
-    return Number(
-      String(raw)
-        .replace(/[^\d.-]/g, "")
-        .trim()
-    ) || 0;
+    return (
+      Number(
+        String(raw)
+          .replace(/[^\d.-]/g, "")
+          .trim()
+      ) || 0
+    );
   }
 
   function getName(t) {
@@ -90,6 +75,7 @@ module.exports = async (req, res) => {
       t.name ||
       t.fromName ||
       t.accountName ||
+      t.sender ||
       "Ẩn danh"
     );
   }
@@ -101,6 +87,7 @@ module.exports = async (req, res) => {
       t.content ||
       t.txnDesc ||
       t.remark ||
+      t.message ||
       ""
     );
   }
@@ -116,53 +103,67 @@ module.exports = async (req, res) => {
     );
   }
 
-  try {
-    let lastDebug = null;
-    let txnData = null;
-    let rawTxns = [];
+  async function fetchPage(xidIndex) {
+    const payload = {
+      size: 100,
+      xidIndex,
+      hashVerifyCode: HASH_VERIFY_CODE,
+      lang: "VN"
+    };
 
-    for (const payload of payloadCandidates) {
-      const timoRes = await fetch(TIMO_TXN_URL, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(payload)
-      });
+    const timoRes = await fetch(TIMO_TXN_URL, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload)
+    });
 
-      const contentType = timoRes.headers.get("content-type") || "";
-      const text = await timoRes.text();
+    const text = await timoRes.text();
 
-      lastDebug = {
-        url: TIMO_TXN_URL,
-        status: timoRes.status,
-        contentType,
-        payload,
-        bodyPreview: text.slice(0, 800)
-      };
-
-      if (!timoRes.ok) continue;
-
-      try {
-        txnData = JSON.parse(text);
-      } catch (e) {
-        lastDebug.parseError = e.message;
-        continue;
-      }
-
-      rawTxns = pickArray(txnData);
-
-      if (Array.isArray(rawTxns)) {
-        break;
-      }
-    }
-
-    if (!Array.isArray(rawTxns)) {
+    if (!timoRes.ok) {
       throw new Error(
-        "Timo trả dữ liệu không đúng định dạng giao dịch. Debug: " +
-          JSON.stringify(lastDebug)
+        `Timo trả HTTP ${timoRes.status}: ${text.slice(0, 500)}`
       );
     }
 
-    // Nếu trả 200 nhưng không có giao dịch, vẫn trả JSON để frontend không crash
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      throw new Error(`Không parse được JSON từ Timo: ${text.slice(0, 500)}`);
+    }
+
+    return {
+      data,
+      rawTxns: pickArray(data),
+      debug: {
+        payload,
+        status: timoRes.status,
+        bodyPreview: text.slice(0, 500)
+      }
+    };
+  }
+
+  try {
+    // Lấy trang đầu tiên
+    const first = await fetchPage(0);
+    let rawTxns = Array.isArray(first.rawTxns) ? first.rawTxns : [];
+
+    // Nếu Timo phân trang bằng xidIndex, thử lấy thêm vài trang sau.
+    // Nếu không có dữ liệu thêm thì dừng.
+    let xidIndex = 1;
+    while (xidIndex <= 10) {
+      const next = await fetchPage(xidIndex);
+      const nextTxns = Array.isArray(next.rawTxns) ? next.rawTxns : [];
+
+      if (!nextTxns.length) break;
+
+      rawTxns = rawTxns.concat(nextTxns);
+
+      if (nextTxns.length < 100) break;
+
+      xidIndex++;
+    }
+
     let totalAmount = 0;
     const donorMap = {};
     const amounts = [];
@@ -174,11 +175,12 @@ module.exports = async (req, res) => {
       totalAmount += amt;
       amounts.push(amt);
 
-      let nameForTop = getName(t).trim().toUpperCase();
+      const donorName = getName(t);
+      const nameForTop = donorName.trim().toUpperCase();
       donorMap[nameForTop] = (donorMap[nameForTop] || 0) + amt;
 
       return {
-        name: getName(t),
+        name: donorName,
         desc: getDesc(t),
         amount: amt,
         time: getTime(t)
@@ -209,11 +211,11 @@ module.exports = async (req, res) => {
       txnCount: incomingTxns.length,
       avgAmount,
       maxAmount,
-
-      // Tạm để debug. Khi chạy ổn rồi có thể xóa dòng này.
       debug: {
         source: TIMO_TXN_URL,
-        rawCount: rawTxns.length
+        rawCount: rawTxns.length,
+        incomingCount: incomingTxns.length,
+        firstResponsePreview: first.debug.bodyPreview
       }
     });
   } catch (error) {
