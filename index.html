@@ -16,64 +16,78 @@
   <style>
     :root {
       --font-body: 'Be Vietnam Pro', 'Segoe UI', sans-serif;
-      --text-xs:   clamp(0.75rem,  0.7rem  + 0.25vw, 0.875rem);
-      --text-sm:   clamp(0.875rem, 0.8rem  + 0.35vw, 1rem);
-      --text-base: clamp(1rem,     0.95rem + 0.25vw, 1.125rem);
-      --text-lg:   clamp(1.125rem, 1rem    + 0.75vw, 1.5rem);
-      --text-xl:   clamp(1.5rem,   1.2rem  + 1.25vw, 2.25rem);
-      --text-2xl:  clamp(2rem,     1.2rem  + 2.5vw,  3.5rem);
-      --space-1: 0.25rem; --space-2: 0.5rem; --space-3: 0.75rem;
-      --space-4: 1rem;    --space-6: 1.5rem; --space-8: 2rem;
-      --space-10: 2.5rem; --space-12: 3rem;  --space-16: 4rem;
-      --radius-sm: 0.375rem; --radius-md: 0.5rem;
-      --radius-lg: 0.75rem;  --radius-xl: 1rem;
+      --text-xs: clamp(0.75rem, 0.7rem + 0.25vw, 0.875rem);
+      --text-sm: clamp(0.875rem, 0.8rem + 0.35vw, 1rem);
+      --text-base: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+      --text-lg: clamp(1.125rem, 1rem + 0.75vw, 1.5rem);
+      --text-2xl: clamp(2rem, 1.2rem + 2.5vw, 3.5rem);
+      --space-1: 0.25rem;
+      --space-2: 0.5rem;
+      --space-3: 0.75rem;
+      --space-4: 1rem;
+      --space-6: 1.5rem;
+      --space-8: 2rem;
+      --space-10: 2.5rem;
+      --space-12: 3rem;
+      --space-16: 4rem;
+      --radius-sm: 0.375rem;
+      --radius-md: 0.5rem;
+      --radius-lg: 0.75rem;
+      --radius-xl: 1rem;
       --transition: 180ms cubic-bezier(0.16, 1, 0.3, 1);
     }
 
-    :root, [data-theme="dark"] {
-      --bg:        #0f0e0c;
-      --surface:   #161513;
+    :root,
+    [data-theme="dark"] {
+      --bg: #0f0e0c;
+      --surface: #161513;
       --surface-2: #1c1a18;
       --surface-3: #242220;
-      --border:    oklch(0.85 0.01 60 / 0.10);
-      --text:      #e8e6e2;
-      --muted:     #7a7874;
-      --faint:     #3e3d3a;
-      --accent:    #c8392b;
-      --accent-h:  #e04535;
-      --accent-dim:#5a1a14;
-      --gold:      #d4a017;
-      --silver:    #9ba3a8;
-      --bronze:    #a0673a;
-      --success:   #4a9e5c;
+      --border: oklch(0.85 0.01 60 / 0.10);
+      --text: #e8e6e2;
+      --muted: #7a7874;
+      --faint: #3e3d3a;
+      --accent: #c8392b;
+      --accent-h: #e04535;
+      --accent-dim: #5a1a14;
+      --gold: #d4a017;
+      --silver: #9ba3a8;
+      --bronze: #a0673a;
+      --success: #4a9e5c;
       --shadow-sm: 0 1px 3px oklch(0 0 0 / 0.3);
-      --shadow-md: 0 4px 16px oklch(0 0 0 / 0.4);
-      --shadow-lg: 0 12px 40px oklch(0 0 0 / 0.5);
     }
 
     [data-theme="light"] {
-      --bg:        #f5f4f0;
-      --surface:   #faf9f6;
+      --bg: #f5f4f0;
+      --surface: #faf9f6;
       --surface-2: #ffffff;
       --surface-3: #f0ede8;
-      --border:    oklch(0.3 0.01 60 / 0.10);
-      --text:      #1e1c18;
-      --muted:     #6b6966;
-      --faint:     #c5c3bf;
-      --accent:    #c8392b;
-      --accent-h:  #a82d21;
-      --accent-dim:#fde8e6;
-      --gold:      #b8860b;
-      --silver:    #708090;
-      --bronze:    #8b4513;
-      --success:   #2d7a3e;
+      --border: oklch(0.3 0.01 60 / 0.10);
+      --text: #1e1c18;
+      --muted: #6b6966;
+      --faint: #c5c3bf;
+      --accent: #c8392b;
+      --accent-h: #a82d21;
+      --accent-dim: #fde8e6;
+      --gold: #b8860b;
+      --silver: #708090;
+      --bronze: #8b4513;
+      --success: #2d7a3e;
       --shadow-sm: 0 1px 3px oklch(0.2 0.01 60 / 0.08);
-      --shadow-md: 0 4px 16px oklch(0.2 0.01 60 / 0.10);
-      --shadow-lg: 0 12px 40px oklch(0.2 0.01 60 / 0.14);
     }
 
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      -webkit-font-smoothing: antialiased;
+    }
 
     body {
       font-family: var(--font-body);
@@ -90,11 +104,6 @@
       background: none;
       font: inherit;
       color: inherit;
-    }
-
-    a {
-      color: inherit;
-      text-decoration: none;
     }
 
     .container {
@@ -126,10 +135,6 @@
       font-size: var(--text-sm);
       font-weight: 600;
       letter-spacing: -0.02em;
-    }
-
-    .logo svg {
-      flex-shrink: 0;
     }
 
     .theme-btn {
@@ -190,7 +195,7 @@
     .progress-bar {
       height: 10px;
       background: var(--surface-3);
-      border-radius: var(--radius-full, 9999px);
+      border-radius: 9999px;
       overflow: hidden;
       position: relative;
     }
@@ -204,7 +209,7 @@
     }
 
     .progress-fill::after {
-      content: '';
+      content: "";
       position: absolute;
       right: 0;
       top: 0;
@@ -244,7 +249,7 @@
       padding: var(--space-1) var(--space-3);
       background: var(--surface-2);
       border: 1px solid var(--border);
-      border-radius: var(--radius-full, 9999px);
+      border-radius: 9999px;
       font-size: var(--text-xs);
       color: var(--muted);
       transition: all var(--transition);
@@ -304,13 +309,19 @@
       margin-bottom: var(--space-4);
     }
 
-    .donors-card {
+    .donors-card,
+    .txn-list,
+    .private-card {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius-xl);
       overflow: hidden;
       box-shadow: var(--shadow-sm);
       margin-bottom: var(--space-8);
+    }
+
+    .private-card {
+      padding: var(--space-4);
     }
 
     .donor-row {
@@ -376,12 +387,6 @@
     }
 
     .txn-list {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-xl);
-      overflow: hidden;
-      box-shadow: var(--shadow-sm);
-      margin-bottom: var(--space-8);
       max-height: 400px;
       overflow-y: auto;
     }
@@ -441,8 +446,9 @@
       color: var(--muted);
     }
 
-    .refresh-btn {
-      display: flex;
+    .refresh-btn,
+    .btn-primary {
+      display: inline-flex;
       align-items: center;
       gap: var(--space-2);
       padding: var(--space-2) var(--space-3);
@@ -454,9 +460,20 @@
       transition: all var(--transition);
     }
 
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      border-color: transparent;
+    }
+
     .refresh-btn:hover {
       background: var(--surface-3);
       color: var(--text);
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-h);
     }
 
     .refresh-btn.loading svg {
@@ -464,12 +481,18 @@
     }
 
     @keyframes spin {
-      to { transform: rotate(360deg); }
+      to {
+        transform: rotate(360deg);
+      }
     }
 
     @keyframes shimmer {
-      0% { background-position: -200% 0; }
-      100% { background-position: 200% 0; }
+      0% {
+        background-position: -200% 0;
+      }
+      100% {
+        background-position: 200% 0;
+      }
     }
 
     .skeleton {
@@ -507,26 +530,15 @@
       margin-bottom: var(--space-2);
     }
 
-    .error-state p {
-      margin-bottom: var(--space-6);
-      font-size: var(--text-sm);
-    }
-
-    .btn-primary {
-      display: inline-flex;
-      align-items: center;
-      gap: var(--space-2);
-      padding: var(--space-2) var(--space-6);
-      background: var(--accent);
-      color: #fff;
-      border-radius: var(--radius-md);
-      font-weight: 600;
-      font-size: var(--text-sm);
-      transition: background var(--transition);
-    }
-
-    .btn-primary:hover {
-      background: var(--accent-h);
+    .private-input {
+      flex: 1;
+      min-width: 180px;
+      padding: 0.65rem 0.8rem;
+      border-radius: 0.5rem;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text);
+      font: inherit;
     }
 
     ::-webkit-scrollbar {
@@ -567,13 +579,11 @@
         <span>Donate Tracker</span>
       </div>
 
-      <div style="display:flex;gap:var(--space-2)">
-        <button class="theme-btn" id="themeToggle" aria-label="Toggle theme">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-          </svg>
-        </button>
-      </div>
+      <button class="theme-btn" id="themeToggle" aria-label="Toggle theme">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </button>
     </div>
   </div>
 </header>
@@ -606,30 +616,22 @@
     <div class="stats-row" id="statsRow">
       <div class="stat-card">
         <div class="stat-label">Số dư hiện tại</div>
-        <div class="stat-value" id="statCurrentBalance">
-          <div class="skeleton skeleton-text" style="width:7rem"></div>
-        </div>
+        <div class="stat-value" id="statCurrentBalance">Đã khóa</div>
       </div>
 
       <div class="stat-card">
         <div class="stat-label">Số giao dịch</div>
-        <div class="stat-value" id="statTxnCount">
-          <div class="skeleton skeleton-text" style="width:4rem"></div>
-        </div>
+        <div class="stat-value" id="statTxnCount">Đã khóa</div>
       </div>
 
       <div class="stat-card">
         <div class="stat-label">Trung bình/GD</div>
-        <div class="stat-value" id="statAvg">
-          <div class="skeleton skeleton-text" style="width:6rem"></div>
-        </div>
+        <div class="stat-value" id="statAvg">Đã khóa</div>
       </div>
 
       <div class="stat-card">
         <div class="stat-label">Giao dịch lớn nhất</div>
-        <div class="stat-value" id="statMax">
-          <div class="skeleton skeleton-text" style="width:6rem"></div>
-        </div>
+        <div class="stat-value" id="statMax">Đã khóa</div>
       </div>
     </div>
 
@@ -645,8 +647,8 @@
       <div class="skeleton skeleton-row"></div>
     </div>
 
-    <p class="section-title">💎 Donor trên 5 triệu</p>
-    <div class="donors-card" id="over5mDonorsCard">
+    <p class="section-title">💎 Donor trên 3 triệu</p>
+    <div class="donors-card" id="over3mDonorsCard">
       <div class="skeleton skeleton-row"></div>
     </div>
 
@@ -655,12 +657,32 @@
       <div class="skeleton skeleton-row"></div>
     </div>
 
+    <div class="private-card" id="privateLockCard">
+      <p class="section-title" style="margin-bottom:0.75rem">🔒 Khu vực riêng tư</p>
+
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+        <input
+          id="privatePassword"
+          class="private-input"
+          type="password"
+          placeholder="Nhập mật khẩu"
+        />
+
+        <button class="btn-primary" id="unlockPrivateBtn">
+          Mở khóa
+        </button>
+      </div>
+
+      <p id="privateLockMsg" style="font-size:var(--text-xs);color:var(--muted);margin-top:0.75rem">
+        Cần mật khẩu để xem số dư hiện tại, thống kê và giao dịch gần nhất.
+      </p>
+    </div>
+
     <p class="section-title">📋 Giao dịch gần nhất</p>
     <div class="txn-list" id="txnList">
-      <div class="skeleton skeleton-row"></div>
-      <div class="skeleton skeleton-row"></div>
-      <div class="skeleton skeleton-row"></div>
-      <div class="skeleton skeleton-row"></div>
+      <div style="padding:2rem;text-align:center;color:var(--muted)">
+        Nhập mật khẩu để xem giao dịch gần nhất.
+      </div>
     </div>
 
     <footer class="footer">
@@ -669,7 +691,8 @@
 
         <button class="refresh-btn" id="refreshBtn">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+            <polyline points="23 4 23 10 17 10"/>
+            <polyline points="1 20 1 14 7 14"/>
             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
           </svg>
           Refresh
@@ -687,6 +710,8 @@ const TARGET_MILESTONES = [
   200_000_000,
   270_000_000
 ];
+
+let privatePassword = sessionStorage.getItem("privatePassword") || "";
 
 const root = document.documentElement;
 
@@ -744,9 +769,7 @@ const fmtTime = (s) => {
 
   const d = new Date(s);
 
-  if (Number.isNaN(d.getTime())) {
-    return String(s);
-  }
+  if (Number.isNaN(d.getTime())) return String(s);
 
   return (
     d.toLocaleTimeString("vi-VN", {
@@ -808,13 +831,10 @@ function renderDonorRows(el, donors) {
 
 function renderData(d) {
   const totalRaisedAmount = safeNum(d.totalRaisedAmount ?? d.totalAmount);
-  const currentBalance = safeNum(d.currentBalance ?? totalRaisedAmount);
+  const currentBalance = safeNum(d.currentBalance ?? 0);
   const targetAmount = safeNum(d.targetAmount, 270000000);
   const transactions = Array.isArray(d.transactions) ? d.transactions : [];
   const topDonors = Array.isArray(d.topDonors) ? d.topDonors : [];
-  const txnCount = safeNum(d.txnCount);
-  const avgAmount = safeNum(d.avgAmount);
-  const maxAmount = safeNum(d.maxAmount);
 
   const heroEl = document.getElementById("heroAmount");
   const prevVal = safeNum(heroEl.dataset.val || 0);
@@ -854,19 +874,40 @@ function renderData(d) {
     </div>
   `).join("");
 
+  renderDonorRows(document.getElementById("donorsCard"), topDonors);
+
+  if (d.privateLocked) {
+    document.getElementById("statCurrentBalance").textContent = "Đã khóa";
+    document.getElementById("statTxnCount").textContent = "Đã khóa";
+    document.getElementById("statAvg").textContent = "Đã khóa";
+    document.getElementById("statMax").textContent = "Đã khóa";
+
+    document.getElementById("privateLockCard").style.display = "block";
+
+    document.getElementById("txnList").innerHTML =
+      `<div style="padding:2rem;text-align:center;color:var(--muted)">
+        Nhập mật khẩu để xem giao dịch gần nhất.
+      </div>`;
+
+    document.getElementById("lastUpdate").textContent =
+      "Cập nhật: " + new Date().toLocaleTimeString("vi-VN");
+
+    return;
+  }
+
+  document.getElementById("privateLockCard").style.display = "none";
+
   document.getElementById("statCurrentBalance").textContent =
     fmt(currentBalance);
 
   document.getElementById("statTxnCount").textContent =
-    txnCount.toLocaleString("vi-VN") + " GD";
+    safeNum(d.txnCount).toLocaleString("vi-VN") + " GD";
 
   document.getElementById("statAvg").textContent =
-    fmtShort(avgAmount);
+    fmtShort(d.avgAmount);
 
   document.getElementById("statMax").textContent =
-    fmtShort(maxAmount);
-
-  renderDonorRows(document.getElementById("donorsCard"), topDonors);
+    fmtShort(d.maxAmount);
 
   document.getElementById("txnList").innerHTML = transactions.length
     ? transactions
@@ -908,8 +949,8 @@ async function loadTopDonors() {
     );
 
     renderDonorRows(
-      document.getElementById("over5mDonorsCard"),
-      data.over5m || []
+      document.getElementById("over3mDonorsCard"),
+      data.over3m || data.over5m || []
     );
 
     renderDonorRows(
@@ -926,7 +967,11 @@ async function loadData() {
   refreshBtn.classList.add("loading");
 
   try {
-    const res = await fetch("/api/fund-stats", {
+    const url = privatePassword
+      ? `/api/fund-stats?pass=${encodeURIComponent(privatePassword)}`
+      : "/api/fund-stats";
+
+    const res = await fetch(url, {
       cache: "no-store"
     });
 
@@ -934,6 +979,19 @@ async function loadData() {
 
     if (!res.ok || !data.success) {
       throw new Error(data.message || "Lỗi xử lý server");
+    }
+
+    if (!data.privateLocked && privatePassword) {
+      document.getElementById("privateLockMsg").textContent =
+        "Đã mở khóa.";
+      sessionStorage.setItem("privatePassword", privatePassword);
+    }
+
+    if (data.privateLocked && privatePassword) {
+      document.getElementById("privateLockMsg").textContent =
+        "Sai mật khẩu. Vui lòng thử lại.";
+      sessionStorage.removeItem("privatePassword");
+      privatePassword = "";
     }
 
     renderData(data);
@@ -957,6 +1015,28 @@ async function loadData() {
 }
 
 document.getElementById("refreshBtn").addEventListener("click", loadData);
+
+document.getElementById("unlockPrivateBtn").addEventListener("click", async () => {
+  const input = document.getElementById("privatePassword");
+  privatePassword = input.value.trim();
+
+  if (!privatePassword) {
+    document.getElementById("privateLockMsg").textContent =
+      "Vui lòng nhập mật khẩu.";
+    return;
+  }
+
+  document.getElementById("privateLockMsg").textContent =
+    "Đang kiểm tra mật khẩu...";
+
+  await loadData();
+});
+
+document.getElementById("privatePassword").addEventListener("keydown", async (e) => {
+  if (e.key === "Enter") {
+    document.getElementById("unlockPrivateBtn").click();
+  }
+});
 
 loadData();
 setInterval(loadData, 30_000);
