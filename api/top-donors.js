@@ -9,6 +9,9 @@ module.exports = async (req, res) => {
     return res.status(200).end();
   }
 
+  const PAGE_SIZE = 100;
+  const MAX_PAGES = Number(process.env.MAX_TIMO_PAGES || 30);
+
   const HASH_VERIFY_CODE =
     process.env.TIMO_HASH_VERIFY_CODE ||
     "8e5a81d78e1eec11082e66ca9bd5a85b6c7a89c6f803a66a0fc0d219745c2a5f85294ef81454db81f695b76fadecbb59ee58264e4cf545765bb6b690eba6ebed";
@@ -129,7 +132,7 @@ module.exports = async (req, res) => {
 
   async function fetchPage(xidIndex) {
     const payload = {
-      size: 100,
+      size: PAGE_SIZE,
       xidIndex,
       hashVerifyCode: HASH_VERIFY_CODE,
       lang: "VN"
@@ -158,7 +161,9 @@ module.exports = async (req, res) => {
     const allTxns = [];
     const seen = new Set();
 
-    for (let xidIndex = 0; xidIndex <= 30; xidIndex++) {
+    for (let pageIndex = 0; pageIndex < MAX_PAGES; pageIndex++) {
+      const xidIndex = pageIndex * PAGE_SIZE;
+
       const json = await fetchPage(xidIndex);
       const txns = pickTransactions(json);
 
@@ -179,7 +184,7 @@ module.exports = async (req, res) => {
         }
       }
 
-      if (txns.length < 100) break;
+      if (txns.length < PAGE_SIZE) break;
     }
 
     const validTxns = allTxns.filter(
@@ -203,20 +208,25 @@ module.exports = async (req, res) => {
       .sort((a, b) => b.amount - a.amount);
 
     const top3 = donors.slice(0, 3);
-
-    const over5m = donors.filter((d) => d.amount >= 5000000);
+    const over3m = donors.filter((d) => d.amount >= 3000000);
     const over2m = donors.filter((d) => d.amount >= 2000000);
 
     return res.status(200).json({
       success: true,
       top3,
-      over5m,
+      over3m,
       over2m,
+
+      // Alias cũ để nếu HTML nào còn gọi over5m thì không vỡ.
+      over5m: over3m,
+
       donorCount: donors.length,
       debug: {
         rawTxnCount: allTxns.length,
         validTxnCount: validTxns.length,
-        fromDate: TOP_DONOR_FROM_DATE
+        fromDate: TOP_DONOR_FROM_DATE,
+        pageSize: PAGE_SIZE,
+        maxPages: MAX_PAGES
       }
     });
   } catch (error) {
