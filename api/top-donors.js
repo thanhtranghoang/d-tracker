@@ -105,6 +105,8 @@ module.exports = async (req, res) => {
     return String(name || "Ẩn danh")
       .replace(/^Từ\s+/i, "")
       .replace(/^VND-TGTT-/i, "")
+      .replace(/^VND--/i, "")
+      .replace(/^VND-/i, "")
       .replace(/^MOMOIBFT/i, "MOMO")
       .replace(/\s+/g, " ")
       .trim()
@@ -221,9 +223,21 @@ module.exports = async (req, res) => {
       .sort((a, b) => b.amount - a.amount);
 
     const top3 = donors.slice(0, 3);
-    const over3m = donors.filter((d) => d.amount >= 3000000);
-    const over2m = donors.filter((d) => d.amount >= 2000000);
-    const over500k = donors.filter((d) => d.amount >= 500000);
+    const top3NameSet = new Set(top3.map((d) => d.name));
+
+    const nonTop3Donors = donors.filter((d) => !top3NameSet.has(d.name));
+
+    const over3m = nonTop3Donors.filter(
+      (d) => d.amount >= 3000000
+    );
+
+    const over2m = nonTop3Donors.filter(
+      (d) => d.amount >= 2000000 && d.amount < 3000000
+    );
+
+    const over500k = nonTop3Donors.filter(
+      (d) => d.amount >= 500000 && d.amount < 2000000
+    );
 
     return res.status(200).json({
       success: true,
@@ -241,10 +255,16 @@ module.exports = async (req, res) => {
       debug: {
         rawTxnCount: allTxns.length,
         validTxnCount: validTxns.length,
+        totalDonorCount: donors.length,
+        top3Count: top3.length,
+        over3mCount: over3m.length,
+        over2mCount: over2m.length,
+        over500kCount: over500k.length,
         fromDate: TOP_DONOR_FROM_DATE,
         pageSize: PAGE_SIZE,
         maxPages: MAX_PAGES,
-        paginationMode: "lastIndex"
+        paginationMode: "lastIndex",
+        bucketMode: "exclusive"
       }
     });
   } catch (error) {
