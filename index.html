@@ -979,9 +979,8 @@
 const TARGET_MILESTONES = [
   70_000_000,
   100_000_000,
-  150_000_000,
-  200_000_000,
-  270_000_000
+  120_000_000,
+  250_000_000
 ];
 
 let privatePassword = sessionStorage.getItem("privatePassword") || "";
@@ -1144,7 +1143,7 @@ function renderDonorRows(el, donors) {
 function renderData(d) {
   const totalRaisedAmount = safeNum(d.totalRaisedAmount ?? d.totalAmount);
   const currentBalance = safeNum(d.currentBalance ?? 0);
-  const targetAmount = safeNum(d.targetAmount, 270000000);
+  const targetAmount = safeNum(d.targetAmount, 150000000);
   const transactions = Array.isArray(d.transactions) ? d.transactions : [];
   const topDonors = Array.isArray(d.topDonors) ? d.topDonors : [];
 
