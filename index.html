@@ -502,11 +502,6 @@
       border-radius: var(--radius-sm);
     }
 
-    .skeleton-text {
-      height: 1em;
-      margin-bottom: var(--space-2);
-    }
-
     .skeleton-amount {
       height: 3rem;
       width: 60%;
@@ -539,19 +534,6 @@
       background: var(--surface-2);
       color: var(--text);
       font: inherit;
-    }
-
-    ::-webkit-scrollbar {
-      width: 6px;
-    }
-
-    ::-webkit-scrollbar-track {
-      background: transparent;
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background: var(--surface-3);
-      border-radius: 3px;
     }
 
     @media (max-width: 600px) {
@@ -638,8 +620,6 @@
     <p class="section-title">🏆 Top Donor</p>
     <div class="donors-card" id="donorsCard">
       <div class="skeleton skeleton-row"></div>
-      <div class="skeleton skeleton-row"></div>
-      <div class="skeleton skeleton-row"></div>
     </div>
 
     <p class="section-title">🥇 Top 3 Donor</p>
@@ -690,11 +670,6 @@
         <span id="lastUpdate">Chưa tải dữ liệu</span>
 
         <button class="refresh-btn" id="refreshBtn">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="23 4 23 10 17 10"/>
-            <polyline points="1 20 1 14 7 14"/>
-            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
-          </svg>
           Refresh
         </button>
       </div>
