@@ -96,6 +96,35 @@
       color: var(--text);
       min-height: 100dvh;
       line-height: 1.6;
+      position: relative;
+      isolation: isolate;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: -2;
+      background-image: url("/light-up-bg.png");
+      background-size: cover;
+      background-position: center top;
+      background-repeat: no-repeat;
+      filter: saturate(1.12) contrast(1.04);
+    }
+
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      background:
+        linear-gradient(
+          to bottom,
+          rgba(3, 8, 28, 0.36),
+          rgba(3, 8, 28, 0.62) 45%,
+          rgba(3, 8, 28, 0.86)
+        );
+      pointer-events: none;
     }
 
     button {
@@ -116,9 +145,9 @@
       position: sticky;
       top: 0;
       z-index: 100;
-      background: color-mix(in oklch, var(--bg) 85%, transparent);
-      backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--border);
+      background: rgba(5, 12, 35, 0.42);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
       padding: var(--space-3) 0;
     }
 
@@ -135,6 +164,22 @@
       font-size: var(--text-sm);
       font-weight: 600;
       letter-spacing: -0.02em;
+    }
+
+    .logo-img {
+      width: 28px;
+      height: 28px;
+      object-fit: contain;
+      border-radius: 8px;
+      filter:
+        drop-shadow(0 0 8px rgba(117, 247, 255, 0.5))
+        drop-shadow(0 0 14px rgba(61, 139, 255, 0.28));
+    }
+
+    .header-actions {
+      display: flex;
+      gap: var(--space-2);
+      align-items: center;
     }
 
     .theme-btn {
@@ -176,6 +221,9 @@
       margin-bottom: var(--space-2);
       font-variant-numeric: tabular-nums;
       transition: color var(--transition);
+      text-shadow:
+        0 0 22px rgba(117, 247, 255, 0.38),
+        0 4px 28px rgba(0, 0, 0, 0.5);
     }
 
     .hero-amount.bump {
@@ -203,7 +251,8 @@
     .progress-fill {
       height: 100%;
       border-radius: inherit;
-      background: var(--accent);
+      background: linear-gradient(90deg, #75f7ff, #3d8bff, #ffffff);
+      box-shadow: 0 0 16px rgba(94, 220, 255, 0.65);
       transition: width 1s cubic-bezier(0.16, 1, 0.3, 1);
       position: relative;
     }
@@ -231,7 +280,7 @@
     .pct-badge {
       font-weight: 700;
       font-size: var(--text-sm);
-      color: var(--accent);
+      color: #75f7ff;
     }
 
     .milestones {
@@ -278,11 +327,12 @@
     }
 
     .stat-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
+      background: rgba(5, 12, 35, 0.62);
+      border: 1px solid rgba(255, 255, 255, 0.14);
       border-radius: var(--radius-lg);
       padding: var(--space-4);
       box-shadow: var(--shadow-sm);
+      backdrop-filter: blur(12px);
     }
 
     .stat-label {
@@ -312,12 +362,13 @@
     .donors-card,
     .txn-list,
     .private-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
+      background: rgba(5, 12, 35, 0.62);
+      border: 1px solid rgba(255, 255, 255, 0.14);
       border-radius: var(--radius-xl);
       overflow: hidden;
       box-shadow: var(--shadow-sm);
       margin-bottom: var(--space-8);
+      backdrop-filter: blur(12px);
     }
 
     .private-card {
@@ -382,7 +433,7 @@
       font-size: var(--text-sm);
       font-weight: 600;
       font-variant-numeric: tabular-nums;
-      color: var(--accent);
+      color: #75f7ff;
       white-space: nowrap;
     }
 
@@ -553,19 +604,23 @@
   <div class="container">
     <div class="header-inner">
       <div class="logo">
-        <svg aria-label="Donate Tracker" viewBox="0 0 32 32" width="28" height="28" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect width="32" height="32" rx="8" fill="var(--accent)"/>
-          <path d="M16 7 C16 7 8 12 8 18 C8 22.4 11.6 26 16 26 C20.4 26 24 22.4 24 18 C24 12 16 7 16 7Z" fill="white" opacity="0.9"/>
-          <path d="M16 11 C16 11 11 14.5 11 18 C11 20.8 13.2 23 16 23 C18.8 23 21 20.8 21 18 C21 14.5 16 11 16 11Z" fill="var(--accent)"/>
-        </svg>
+        <img src="/logo.png" alt="Donate Tracker" class="logo-img" />
         <span>Donate Tracker</span>
       </div>
 
-      <button class="theme-btn" id="themeToggle" aria-label="Toggle theme">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-        </svg>
-      </button>
+      <div class="header-actions">
+        <button class="theme-btn" id="musicToggle" aria-label="Toggle music" title="Music">
+          ♫
+        </button>
+
+        <button class="theme-btn" id="themeToggle" aria-label="Toggle theme">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </button>
+
+        <audio id="bgMusic" src="/bgm.mp3" loop preload="auto"></audio>
+      </div>
     </div>
   </div>
 </header>
@@ -713,6 +768,45 @@ function updateThemeIcon() {
 }
 
 updateThemeIcon();
+
+const bgMusic = document.getElementById("bgMusic");
+const musicToggle = document.getElementById("musicToggle");
+
+let isMusicPlaying = false;
+
+if (bgMusic) {
+  bgMusic.volume = 0.35;
+}
+
+function updateMusicIcon() {
+  if (!musicToggle) return;
+  musicToggle.textContent = isMusicPlaying ? "❚❚" : "♫";
+}
+
+async function toggleMusic() {
+  if (!bgMusic) return;
+
+  try {
+    if (isMusicPlaying) {
+      bgMusic.pause();
+      isMusicPlaying = false;
+    } else {
+      await bgMusic.play();
+      isMusicPlaying = true;
+    }
+
+    updateMusicIcon();
+  } catch (err) {
+    console.warn("Browser chặn autoplay, cần bấm nút nhạc:", err);
+    isMusicPlaying = false;
+    updateMusicIcon();
+  }
+}
+
+if (musicToggle) {
+  musicToggle.addEventListener("click", toggleMusic);
+  updateMusicIcon();
+}
 
 const safeNum = (n, fallback = 0) => {
   const x = Number(n);
