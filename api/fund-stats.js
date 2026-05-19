@@ -2,25 +2,20 @@ module.exports = async (req, res) => {
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type,x-view-password");
   res.setHeader("Cache-Control", "no-store");
 
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
 
-  // =========================
-  // CONFIG
-  // =========================
+  const PAGE_SIZE = 100;
+  const MAX_PAGES = Number(process.env.MAX_TIMO_PAGES || 30);
 
-  // Mốc tổng donate đã chốt:
-  // 19/05/2026 13:40 GMT+7
   const BASE_RAISED_AMOUNT = Number(
     process.env.BASE_RAISED_AMOUNT || 84452318
   );
 
-  // Balance tại thời điểm chốt mốc.
-  // Thường bằng BASE_RAISED_AMOUNT nếu chưa rút quỹ.
   const CHECKPOINT_BALANCE = Number(
     process.env.CHECKPOINT_BALANCE || 84452318
   );
@@ -34,6 +29,16 @@ module.exports = async (req, res) => {
 
   const TOP_DONOR_FROM_DATE =
     process.env.TOP_DONOR_FROM_DATE || "2026-05-18";
+
+  const VIEW_PASSWORD =
+    process.env.VIEW_PASSWORD || "121205";
+
+  const providedPassword =
+    req.query?.pass ||
+    req.headers["x-view-password"] ||
+    "";
+
+  const canViewPrivate = providedPassword === VIEW_PASSWORD;
 
   const HASH_VERIFY_CODE =
     process.env.TIMO_HASH_VERIFY_CODE ||
@@ -50,10 +55,6 @@ module.exports = async (req, res) => {
     "User-Agent":
       "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Mobile Safari/537.36"
   };
-
-  // =========================
-  // HELPERS
-  // =========================
 
   function parseGroupDate(dispDate) {
     if (!dispDate) return null;
@@ -125,10 +126,6 @@ module.exports = async (req, res) => {
     );
   }
 
-  function getAmount(txn) {
-    return Math.abs(getSignedAmount(txn));
-  }
-
   function getRemainingAmount(txn) {
     return toNumber(txn.remainingAmount ?? txn.balance ?? 0);
   }
@@ -192,6 +189,7 @@ module.exports = async (req, res) => {
     if (!raw) return null;
 
     const d = new Date(raw);
+
     return Number.isNaN(d.getTime()) ? null : d;
   }
 
@@ -211,12 +209,13 @@ module.exports = async (req, res) => {
       return d ? d.getTime() > start.getTime() : false;
     }
 
-    // Nếu Timo chỉ trả "Hôm nay" / ngày, không có giờ,
-    // fallback an toàn: chỉ tính các ngày sau ngày checkpoint.
-    // Cùng ngày 19/05/2026 sẽ được ưu tiên xử lý bằng balance-boundary bên dưới.
     if (!txn._groupDate) return false;
 
-    const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const startDay = new Date(
+      start.getFullYear(),
+      start.getMonth(),
+      start.getDate()
+    );
 
     return txn._groupDate.getTime() > startDay.getTime();
   }
@@ -226,13 +225,11 @@ module.exports = async (req, res) => {
   }
 
   function findTransactionsAfterCheckpoint(allTxns) {
-    // Timo trả mới nhất trước. Dùng remainingAmount để tìm giao dịch đầu tiên
-    // sau mốc 13:40: previousBalance = remainingAfter - signedAmount.
-    // Khi previousBalance == CHECKPOINT_BALANCE thì đó là giao dịch đầu sau checkpoint.
     let boundaryIndex = -1;
 
     for (let i = 0; i < allTxns.length; i++) {
       const txn = allTxns[i];
+
       const remaining = getRemainingAmount(txn);
       const signedAmount = getSignedAmount(txn);
 
@@ -249,13 +246,12 @@ module.exports = async (req, res) => {
       return allTxns.slice(0, boundaryIndex + 1);
     }
 
-    // Fallback nếu không tìm được boundary bằng balance.
     return allTxns.filter(isAfterRaisedTrackDate);
   }
 
   async function fetchPage(xidIndex) {
     const payload = {
-      size: 100,
+      size: PAGE_SIZE,
       xidIndex,
       hashVerifyCode: HASH_VERIFY_CODE,
       lang: "VN"
@@ -288,19 +284,16 @@ module.exports = async (req, res) => {
     };
   }
 
-  // =========================
-  // MAIN
-  // =========================
-
   try {
     const rawTxns = [];
     const seen = new Set();
     let firstPreview = "";
 
-    for (let xidIndex = 0; xidIndex <= 30; xidIndex++) {
+    for (let pageIndex = 0; pageIndex < MAX_PAGES; pageIndex++) {
+      const xidIndex = pageIndex * PAGE_SIZE;
       const page = await fetchPage(xidIndex);
 
-      if (xidIndex === 0) {
+      if (pageIndex === 0) {
         firstPreview = page.preview;
       }
 
@@ -321,12 +314,11 @@ module.exports = async (req, res) => {
         }
       }
 
-      if (page.txns.length < 100) break;
+      if (page.txns.length < PAGE_SIZE) break;
     }
 
     const incomingTxns = rawTxns.filter((txn) => getSignedAmount(txn) > 0);
 
-    // Số dư realtime hiện tại: lấy remainingAmount của giao dịch mới nhất.
     let currentBalance = BASE_RAISED_AMOUNT;
 
     if (rawTxns.length > 0) {
@@ -337,7 +329,6 @@ module.exports = async (req, res) => {
       }
     }
 
-    // Tổng donate tích lũy: chỉ tăng sau mốc checkpoint.
     const txnsAfterCheckpoint = findTransactionsAfterCheckpoint(rawTxns);
 
     const raisedDelta = txnsAfterCheckpoint
@@ -364,16 +355,15 @@ module.exports = async (req, res) => {
     }
 
     const topDonors = Object.entries(donorMap)
-      .map(([name, amount], index) => ({
-        rank: index + 1,
+      .map(([name, amount]) => ({
         name,
         amount
       }))
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 10)
       .map((d, index) => ({
-        ...d,
-        rank: index + 1
+        rank: index + 1,
+        ...d
       }));
 
     const fetchedAmount = incomingTxns.reduce(
@@ -392,35 +382,38 @@ module.exports = async (req, res) => {
     return res.status(200).json({
       success: true,
 
-      // Alias cho HTML cũ.
       totalAmount: totalRaisedAmount,
-
-      // Field mới.
       totalRaisedAmount,
-      currentBalance,
+
+      currentBalance: canViewPrivate ? currentBalance : null,
 
       targetAmount: TARGET_AMOUNT,
 
-      transactions: transactions.slice(0, 50),
+      transactions: canViewPrivate ? transactions.slice(0, 50) : [],
       topDonors,
 
-      txnCount: incomingTxns.length,
-      avgAmount,
-      maxAmount,
+      txnCount: canViewPrivate ? incomingTxns.length : null,
+      avgAmount: canViewPrivate ? avgAmount : null,
+      maxAmount: canViewPrivate ? maxAmount : null,
+
+      privateLocked: !canViewPrivate,
 
       debug: {
         source: TIMO_TXN_URL,
+        privateLocked: !canViewPrivate,
         baseRaisedAmount: BASE_RAISED_AMOUNT,
         checkpointBalance: CHECKPOINT_BALANCE,
         raisedTrackFromDateTime: RAISED_TRACK_FROM_DATETIME,
         raisedDelta,
         totalRaisedAmount,
-        currentBalance,
-        fetchedAmount,
+        currentBalance: canViewPrivate ? currentBalance : null,
+        fetchedAmount: canViewPrivate ? fetchedAmount : null,
         rawCount: rawTxns.length,
-        incomingCount: incomingTxns.length,
+        incomingCount: canViewPrivate ? incomingTxns.length : null,
         txnsAfterCheckpointCount: txnsAfterCheckpoint.length,
         topDonorFromDate: TOP_DONOR_FROM_DATE,
+        pageSize: PAGE_SIZE,
+        maxPages: MAX_PAGES,
         firstResponsePreview: firstPreview
       }
     });
