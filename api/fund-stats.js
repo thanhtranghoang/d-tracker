@@ -9,8 +9,8 @@ module.exports = async (req, res) => {
     return res.status(200).end();
   }
 
-  const PAGE_SIZE = 100;
-  const MAX_PAGES = Number(process.env.MAX_TIMO_PAGES || 30);
+  const PAGE_SIZE = Number(process.env.TIMO_PAGE_SIZE || 100);
+  const MAX_PAGES = Number(process.env.MAX_TIMO_PAGES || 50);
 
   const BASE_RAISED_AMOUNT = Number(
     process.env.BASE_RAISED_AMOUNT || 84452318
@@ -280,6 +280,15 @@ module.exports = async (req, res) => {
     return {
       json,
       txns: pickTransactions(json),
+
+      // Cursor phân trang đúng của Timo
+      nextXidIndex:
+        Number(json?.data?.lastIndex || json?.lastIndex || 0) || null,
+
+      // Số dư realtime nằm trong data.amount
+      currentAmount:
+        toNumber(json?.data?.amount || json?.amount || 0),
+
       preview: text.slice(0, 500)
     };
   }
@@ -287,14 +296,17 @@ module.exports = async (req, res) => {
   try {
     const rawTxns = [];
     const seen = new Set();
+
     let firstPreview = "";
+    let firstCurrentAmount = 0;
+    let xidIndex = 0;
 
     for (let pageIndex = 0; pageIndex < MAX_PAGES; pageIndex++) {
-      const xidIndex = pageIndex * PAGE_SIZE;
       const page = await fetchPage(xidIndex);
 
       if (pageIndex === 0) {
         firstPreview = page.preview;
+        firstCurrentAmount = page.currentAmount;
       }
 
       if (!page.txns.length) break;
@@ -314,14 +326,20 @@ module.exports = async (req, res) => {
         }
       }
 
-      if (page.txns.length < PAGE_SIZE) break;
+      if (!page.nextXidIndex || page.nextXidIndex === xidIndex) {
+        break;
+      }
+
+      xidIndex = page.nextXidIndex;
     }
 
     const incomingTxns = rawTxns.filter((txn) => getSignedAmount(txn) > 0);
 
     let currentBalance = BASE_RAISED_AMOUNT;
 
-    if (rawTxns.length > 0) {
+    if (firstCurrentAmount > 0) {
+      currentBalance = firstCurrentAmount;
+    } else if (rawTxns.length > 0) {
       const latestBalance = getRemainingAmount(rawTxns[0]);
 
       if (latestBalance > 0) {
@@ -366,17 +384,20 @@ module.exports = async (req, res) => {
         ...d
       }));
 
-    const fetchedAmount = incomingTxns.reduce(
+    // Stats cũng tính từ 18/05/2026 giống Top Donor
+    const statsTxns = incomingTxns.filter(isOnOrAfterTopDonorDate);
+
+    const fetchedAmount = statsTxns.reduce(
       (sum, txn) => sum + getSignedAmount(txn),
       0
     );
 
-    const avgAmount = incomingTxns.length
-      ? fetchedAmount / incomingTxns.length
+    const avgAmount = statsTxns.length
+      ? fetchedAmount / statsTxns.length
       : 0;
 
-    const maxAmount = incomingTxns.length
-      ? Math.max(...incomingTxns.map((txn) => getSignedAmount(txn)))
+    const maxAmount = statsTxns.length
+      ? Math.max(...statsTxns.map((txn) => getSignedAmount(txn)))
       : 0;
 
     return res.status(200).json({
@@ -392,7 +413,7 @@ module.exports = async (req, res) => {
       transactions: canViewPrivate ? transactions.slice(0, 50) : [],
       topDonors,
 
-      txnCount: canViewPrivate ? incomingTxns.length : null,
+      txnCount: canViewPrivate ? statsTxns.length : null,
       avgAmount: canViewPrivate ? avgAmount : null,
       maxAmount: canViewPrivate ? maxAmount : null,
 
@@ -410,10 +431,12 @@ module.exports = async (req, res) => {
         fetchedAmount: canViewPrivate ? fetchedAmount : null,
         rawCount: rawTxns.length,
         incomingCount: canViewPrivate ? incomingTxns.length : null,
+        statsTxnCount: canViewPrivate ? statsTxns.length : null,
         txnsAfterCheckpointCount: txnsAfterCheckpoint.length,
         topDonorFromDate: TOP_DONOR_FROM_DATE,
         pageSize: PAGE_SIZE,
         maxPages: MAX_PAGES,
+        paginationMode: "lastIndex",
         firstResponsePreview: firstPreview
       }
     });
