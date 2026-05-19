@@ -1,4 +1,5 @@
 module.exports = async (req, res) => {
+  // CORS + cache
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
@@ -31,19 +32,36 @@ module.exports = async (req, res) => {
   function pickArray(obj) {
     if (!obj || typeof obj !== "object") return [];
 
-    return (
+    const direct =
       obj.transactions ||
-      obj.txnHistories ||
       obj.data?.transactions ||
-      obj.data?.txnHistories ||
-      obj.data?.content ||
-      obj.data?.items ||
       obj.content ||
       obj.items ||
+      obj.data?.content ||
+      obj.data?.items ||
       obj.result?.transactions ||
+      [];
+
+    if (Array.isArray(direct) && direct.length) {
+      return direct;
+    }
+
+    const histories =
+      obj.txnHistories ||
+      obj.data?.txnHistories ||
       obj.result?.txnHistories ||
-      []
-    );
+      [];
+
+    if (Array.isArray(histories)) {
+      return histories.flatMap((group) => {
+        if (Array.isArray(group.item)) return group.item;
+        if (Array.isArray(group.items)) return group.items;
+        if (Array.isArray(group.transactions)) return group.transactions;
+        return [];
+      });
+    }
+
+    return [];
   }
 
   function getAmount(t) {
@@ -68,7 +86,7 @@ module.exports = async (req, res) => {
   }
 
   function getName(t) {
-    return (
+    const title =
       t.counterpartName ||
       t.senderName ||
       t.fullName ||
@@ -76,8 +94,10 @@ module.exports = async (req, res) => {
       t.fromName ||
       t.accountName ||
       t.sender ||
-      "Ẩn danh"
-    );
+      t.txnTitle ||
+      "Ẩn danh";
+
+    return String(title).replace(/^Từ\s+/i, "").trim();
   }
 
   function getDesc(t) {
@@ -99,6 +119,7 @@ module.exports = async (req, res) => {
       t.date ||
       t.transactionDate ||
       t.time ||
+      t.dispDate ||
       null
     );
   }
@@ -120,9 +141,7 @@ module.exports = async (req, res) => {
     const text = await timoRes.text();
 
     if (!timoRes.ok) {
-      throw new Error(
-        `Timo trả HTTP ${timoRes.status}: ${text.slice(0, 500)}`
-      );
+      throw new Error(`Timo trả HTTP ${timoRes.status}: ${text.slice(0, 500)}`);
     }
 
     let data;
@@ -144,24 +163,41 @@ module.exports = async (req, res) => {
   }
 
   try {
-    // Lấy trang đầu tiên
-    const first = await fetchPage(0);
-    let rawTxns = Array.isArray(first.rawTxns) ? first.rawTxns : [];
+    let rawTxns = [];
+    let firstPreview = "";
+    const seen = new Set();
 
-    // Nếu Timo phân trang bằng xidIndex, thử lấy thêm vài trang sau.
-    // Nếu không có dữ liệu thêm thì dừng.
-    let xidIndex = 1;
-    while (xidIndex <= 10) {
-      const next = await fetchPage(xidIndex);
-      const nextTxns = Array.isArray(next.rawTxns) ? next.rawTxns : [];
+    for (let xidIndex = 0; xidIndex <= 10; xidIndex++) {
+      const page = await fetchPage(xidIndex);
 
-      if (!nextTxns.length) break;
+      if (xidIndex === 0) {
+        firstPreview = page.debug.bodyPreview;
+      }
 
-      rawTxns = rawTxns.concat(nextTxns);
+      const pageTxns = Array.isArray(page.rawTxns) ? page.rawTxns : [];
 
-      if (nextTxns.length < 100) break;
+      if (!pageTxns.length) {
+        break;
+      }
 
-      xidIndex++;
+      for (const txn of pageTxns) {
+        const key = JSON.stringify({
+          title: txn.txnTitle || txn.counterpartName || txn.senderName || "",
+          desc: txn.txnDesc || txn.description || txn.memo || "",
+          amount: txn.txnAmount || txn.amount || "",
+          remain: txn.remainingAmount || "",
+          time: txn.txnDate || txn.createdAt || txn.date || ""
+        });
+
+        if (!seen.has(key)) {
+          seen.add(key);
+          rawTxns.push(txn);
+        }
+      }
+
+      if (pageTxns.length < 100) {
+        break;
+      }
     }
 
     let totalAmount = 0;
@@ -215,7 +251,7 @@ module.exports = async (req, res) => {
         source: TIMO_TXN_URL,
         rawCount: rawTxns.length,
         incomingCount: incomingTxns.length,
-        firstResponsePreview: first.debug.bodyPreview
+        firstResponsePreview: firstPreview
       }
     });
   } catch (error) {
