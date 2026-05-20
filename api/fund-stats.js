@@ -162,8 +162,129 @@ module.exports = async (req, res) => {
     return toNumber(txn.remainingAmount ?? txn.balance ?? 0);
   }
 
+  function cleanText(text) {
+    return String(text || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function normalizeName(name) {
+    return cleanText(name || "Ẩn danh")
+      .replace(/^Từ\s+/i, "")
+      .replace(/^VND-TGTT-/i, "")
+      .replace(/^VND--/i, "")
+      .replace(/^VND-/i, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toUpperCase();
+  }
+
+  function isGenericPaymentTitle(title) {
+    const t = normalizeName(title);
+
+    return (
+      t === "MOMOIBFT" ||
+      t === "MOMO" ||
+      t === "MBBANK IBFT" ||
+      t === "MB BANK IBFT" ||
+      t.includes("CONG TY CO PHAN ZION") ||
+      t.includes("CONG TY CO PHAN SHOPEEPAY") ||
+      t.includes("SHOPEEPAY") ||
+      t.includes("ZION")
+    );
+  }
+
+  function removeTransferCodes(desc) {
+    return cleanText(desc)
+      .replace(/\bFT\d{8,}\b/gi, "")
+      .replace(/\bZP\d{8,}\b/gi, "")
+      .replace(/\b[0-9A-Z]{10,}\b/g, "")
+      .replace(/\bMBVCB\.[^.]+\.[^.]+\./gi, "")
+      .replace(/\bCT tu\b.*$/gi, "")
+      .replace(/\bchuyen tien qua momo\b/gi, "")
+      .replace(/\bchuyen tien\b/gi, "")
+      .replace(/\bscan qr\b/gi, "")
+      .replace(/\bung ho\b/gi, "")
+      .replace(/\bdonate\b/gi, "")
+      .replace(/\bsupport\b/gi, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function inferNameFromDesc(desc, fallbackChannel) {
+    const cleaned = removeTransferCodes(desc);
+
+    if (!cleaned) return fallbackChannel;
+
+    const words = cleaned.split(/\s+/).filter(Boolean);
+
+    const stopWords = new Set([
+      "chuc", "chúc",
+      "pn", "phuc", "nguyen", "uprize",
+      "debut", "light", "up", "the", "sky",
+      "gui", "gửi", "cho", "ung", "ủng", "ho", "hộ",
+      "project", "prj", "support", "donate",
+      "mua", "tra", "trả", "flag", "bill",
+      "cam", "on", "iu", "yeu", "thuong",
+      "thanh", "cong", "ruc", "ro"
+    ]);
+
+    const picked = [];
+
+    for (const word of words) {
+      const lower = word.toLowerCase();
+
+      if (stopWords.has(lower)) break;
+
+      picked.push(word);
+
+      if (picked.length >= 3) break;
+    }
+
+    if (picked.length > 0) {
+      return normalizeName(picked.join(" "));
+    }
+
+    return normalizeName(`${fallbackChannel} - ${cleaned.slice(0, 60)}`);
+  }
+
   function getName(txn) {
-    const raw =
+    const title =
+      txn.txnTitle ||
+      txn.counterpartName ||
+      txn.senderName ||
+      txn.fullName ||
+      txn.name ||
+      "";
+
+    const desc =
+      txn.txnDesc ||
+      txn.description ||
+      txn.memo ||
+      txn.content ||
+      txn.remark ||
+      "";
+
+    const normalizedTitle = normalizeName(title);
+
+    if (isGenericPaymentTitle(title)) {
+      let channel = "DONOR";
+
+      if (normalizedTitle.includes("MOMO")) channel = "MOMO";
+      else if (normalizedTitle.includes("MBBANK") || normalizedTitle.includes("MB BANK")) channel = "MBBANK";
+      else if (normalizedTitle.includes("ZION")) channel = "ZALOPAY";
+      else if (normalizedTitle.includes("SHOPEEPAY")) channel = "SHOPEEPAY";
+
+      return inferNameFromDesc(desc, channel);
+    }
+
+    return normalizeName(title || "Ẩn danh");
+  }
+
+  function getDisplayName(txn) {
+    const title =
       txn.txnTitle ||
       txn.counterpartName ||
       txn.senderName ||
@@ -171,7 +292,7 @@ module.exports = async (req, res) => {
       txn.name ||
       "Ẩn danh";
 
-    return String(raw)
+    return String(title)
       .replace(/^Từ\s+/i, "")
       .replace(/^VND-TGTT-/i, "")
       .replace(/^VND--/i, "")
@@ -385,7 +506,8 @@ module.exports = async (req, res) => {
     const totalRaisedAmount = BASE_RAISED_AMOUNT + raisedDelta;
 
     const transactions = incomingTxns.map((txn) => ({
-      name: getName(txn),
+      name: getDisplayName(txn),
+      inferredName: getName(txn),
       desc: getDesc(txn),
       amount: getSignedAmount(txn),
       time: getTime(txn)
@@ -395,7 +517,7 @@ module.exports = async (req, res) => {
     const topDonorTxns = incomingTxns.filter(isOnOrAfterTopDonorDate);
 
     for (const txn of topDonorTxns) {
-      const donorName = getName(txn).trim().toUpperCase();
+      const donorName = getName(txn);
       const amount = getSignedAmount(txn);
 
       donorMap[donorName] = (donorMap[donorName] || 0) + amount;
@@ -434,22 +556,18 @@ module.exports = async (req, res) => {
       totalAmount: totalRaisedAmount,
       totalRaisedAmount,
 
-      // Public: ai cũng xem được số dư hiện tại
       currentBalance,
 
       targetAmount: TARGET_AMOUNT,
 
-      // Chỉ khóa phần giao dịch gần nhất
       transactions: canViewPrivate ? transactions.slice(0, 50) : [],
 
       topDonors,
 
-      // Public: ai cũng xem được thống kê
       txnCount: statsTxns.length,
       avgAmount,
       maxAmount,
 
-      // Chỉ dùng để frontend biết có khóa giao dịch không
       privateLocked: !canViewPrivate,
 
       debug: {
@@ -470,6 +588,7 @@ module.exports = async (req, res) => {
         pageSize: PAGE_SIZE,
         maxPages: MAX_PAGES,
         paginationMode: "lastIndex",
+        donorNameMode: "infer-from-description-for-generic-payment-titles",
         cacheMode: canViewPrivate ? "private-memory" : "public-memory",
         cacheTtlMs: FUND_STATS_CACHE_TTL,
         firstResponsePreview: firstPreview
