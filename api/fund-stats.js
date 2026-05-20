@@ -1,3 +1,13 @@
+let FUND_STATS_CACHE_PUBLIC = null;
+let FUND_STATS_CACHE_PUBLIC_TIME = 0;
+
+let FUND_STATS_CACHE_PRIVATE = null;
+let FUND_STATS_CACHE_PRIVATE_TIME = 0;
+
+const FUND_STATS_CACHE_TTL = Number(
+  process.env.FUND_STATS_CACHE_TTL || 60_000
+);
+
 module.exports = async (req, res) => {
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -39,6 +49,28 @@ module.exports = async (req, res) => {
     "";
 
   const canViewPrivate = providedPassword === VIEW_PASSWORD;
+
+  const forceRefresh = req.query?.refresh === "1";
+
+  const cacheData = canViewPrivate
+    ? FUND_STATS_CACHE_PRIVATE
+    : FUND_STATS_CACHE_PUBLIC;
+
+  const cacheTime = canViewPrivate
+    ? FUND_STATS_CACHE_PRIVATE_TIME
+    : FUND_STATS_CACHE_PUBLIC_TIME;
+
+  if (
+    !forceRefresh &&
+    cacheData &&
+    Date.now() - cacheTime < FUND_STATS_CACHE_TTL
+  ) {
+    return res.status(200).json({
+      ...cacheData,
+      cached: true,
+      cacheAgeMs: Date.now() - cacheTime
+    });
+  }
 
   const HASH_VERIFY_CODE =
     process.env.TIMO_HASH_VERIFY_CODE ||
@@ -142,6 +174,8 @@ module.exports = async (req, res) => {
     return String(raw)
       .replace(/^Từ\s+/i, "")
       .replace(/^VND-TGTT-/i, "")
+      .replace(/^VND--/i, "")
+      .replace(/^VND-/i, "")
       .trim();
   }
 
@@ -280,15 +314,10 @@ module.exports = async (req, res) => {
     return {
       json,
       txns: pickTransactions(json),
-
-      // Cursor phân trang đúng của Timo
       nextXidIndex:
         Number(json?.data?.lastIndex || json?.lastIndex || 0) || null,
-
-      // Số dư realtime nằm trong data.amount
       currentAmount:
         toNumber(json?.data?.amount || json?.amount || 0),
-
       preview: text.slice(0, 500)
     };
   }
@@ -384,7 +413,6 @@ module.exports = async (req, res) => {
         ...d
       }));
 
-    // Stats cũng tính từ 18/05/2026 giống Top Donor
     const statsTxns = incomingTxns.filter(isOnOrAfterTopDonorDate);
 
     const fetchedAmount = statsTxns.reduce(
@@ -400,23 +428,28 @@ module.exports = async (req, res) => {
       ? Math.max(...statsTxns.map((txn) => getSignedAmount(txn)))
       : 0;
 
-    return res.status(200).json({
+    const payload = {
       success: true,
 
       totalAmount: totalRaisedAmount,
       totalRaisedAmount,
 
-      currentBalance: canViewPrivate ? currentBalance : null,
+      // Public: ai cũng xem được số dư hiện tại
+      currentBalance,
 
       targetAmount: TARGET_AMOUNT,
 
+      // Chỉ khóa phần giao dịch gần nhất
       transactions: canViewPrivate ? transactions.slice(0, 50) : [],
+
       topDonors,
 
-      txnCount: canViewPrivate ? statsTxns.length : null,
-      avgAmount: canViewPrivate ? avgAmount : null,
-      maxAmount: canViewPrivate ? maxAmount : null,
+      // Public: ai cũng xem được thống kê
+      txnCount: statsTxns.length,
+      avgAmount,
+      maxAmount,
 
+      // Chỉ dùng để frontend biết có khóa giao dịch không
       privateLocked: !canViewPrivate,
 
       debug: {
@@ -427,18 +460,34 @@ module.exports = async (req, res) => {
         raisedTrackFromDateTime: RAISED_TRACK_FROM_DATETIME,
         raisedDelta,
         totalRaisedAmount,
-        currentBalance: canViewPrivate ? currentBalance : null,
-        fetchedAmount: canViewPrivate ? fetchedAmount : null,
+        currentBalance,
+        fetchedAmount,
         rawCount: rawTxns.length,
-        incomingCount: canViewPrivate ? incomingTxns.length : null,
-        statsTxnCount: canViewPrivate ? statsTxns.length : null,
+        incomingCount: incomingTxns.length,
+        statsTxnCount: statsTxns.length,
         txnsAfterCheckpointCount: txnsAfterCheckpoint.length,
         topDonorFromDate: TOP_DONOR_FROM_DATE,
         pageSize: PAGE_SIZE,
         maxPages: MAX_PAGES,
         paginationMode: "lastIndex",
+        cacheMode: canViewPrivate ? "private-memory" : "public-memory",
+        cacheTtlMs: FUND_STATS_CACHE_TTL,
         firstResponsePreview: firstPreview
       }
+    };
+
+    if (canViewPrivate) {
+      FUND_STATS_CACHE_PRIVATE = payload;
+      FUND_STATS_CACHE_PRIVATE_TIME = Date.now();
+    } else {
+      FUND_STATS_CACHE_PUBLIC = payload;
+      FUND_STATS_CACHE_PUBLIC_TIME = Date.now();
+    }
+
+    return res.status(200).json({
+      ...payload,
+      cached: false,
+      cacheAgeMs: 0
     });
   } catch (error) {
     console.error("Vercel API Error:", error);
