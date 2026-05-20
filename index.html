@@ -896,22 +896,22 @@
     <div class="stats-row" id="statsRow">
       <div class="stat-card">
         <div class="stat-label">Số dư hiện tại</div>
-        <div class="stat-value" id="statCurrentBalance">Đã khóa</div>
+        <div class="stat-value" id="statCurrentBalance">Đang tải</div>
       </div>
 
       <div class="stat-card">
         <div class="stat-label">Số giao dịch</div>
-        <div class="stat-value" id="statTxnCount">Đã khóa</div>
+        <div class="stat-value" id="statTxnCount">Đang tải</div>
       </div>
 
       <div class="stat-card">
         <div class="stat-label">Trung bình/GD</div>
-        <div class="stat-value" id="statAvg">Đã khóa</div>
+        <div class="stat-value" id="statAvg">Đang tải</div>
       </div>
 
       <div class="stat-card">
         <div class="stat-label">Giao dịch lớn nhất</div>
-        <div class="stat-value" id="statMax">Đã khóa</div>
+        <div class="stat-value" id="statMax">Đang tải</div>
       </div>
     </div>
 
@@ -952,12 +952,12 @@
         />
 
         <button class="btn-primary" id="unlockPrivateBtn">
-          Mở khóa
+          Mở khóa giao dịch
         </button>
       </div>
 
       <p id="privateLockMsg" style="font-size:var(--text-xs);color:var(--muted);margin-top:0.75rem">
-        Cần mật khẩu để xem số dư hiện tại, thống kê và giao dịch gần nhất.
+        Cần mật khẩu để xem giao dịch gần nhất.
       </p>
     </div>
 
@@ -988,6 +988,7 @@ const TARGET_MILESTONES = [
 ];
 
 let privatePassword = sessionStorage.getItem("privatePassword") || "";
+let manualUnlockAttempt = false;
 
 const root = document.documentElement;
 
@@ -1189,12 +1190,19 @@ function renderData(d) {
 
   renderDonorRows(document.getElementById("donorsCard"), topDonors);
 
-  if (d.privateLocked) {
-    document.getElementById("statCurrentBalance").textContent = "Đã khóa";
-    document.getElementById("statTxnCount").textContent = "Đã khóa";
-    document.getElementById("statAvg").textContent = "Đã khóa";
-    document.getElementById("statMax").textContent = "Đã khóa";
+  document.getElementById("statCurrentBalance").textContent =
+    fmt(currentBalance);
 
+  document.getElementById("statTxnCount").textContent =
+    safeNum(d.txnCount).toLocaleString("vi-VN") + " GD";
+
+  document.getElementById("statAvg").textContent =
+    fmtShort(d.avgAmount);
+
+  document.getElementById("statMax").textContent =
+    fmtShort(d.maxAmount);
+
+  if (d.privateLocked) {
     document.getElementById("privateLockCard").style.display = "block";
 
     document.getElementById("txnList").innerHTML =
@@ -1209,18 +1217,6 @@ function renderData(d) {
   }
 
   document.getElementById("privateLockCard").style.display = "none";
-
-  document.getElementById("statCurrentBalance").textContent =
-    fmt(currentBalance);
-
-  document.getElementById("statTxnCount").textContent =
-    safeNum(d.txnCount).toLocaleString("vi-VN") + " GD";
-
-  document.getElementById("statAvg").textContent =
-    fmtShort(d.avgAmount);
-
-  document.getElementById("statMax").textContent =
-    fmtShort(d.maxAmount);
 
   document.getElementById("txnList").innerHTML = transactions.length
     ? transactions
@@ -1301,11 +1297,11 @@ async function loadData() {
 
     if (!data.privateLocked && privatePassword) {
       document.getElementById("privateLockMsg").textContent =
-        "Đã mở khóa.";
+        "Đã mở khóa giao dịch gần nhất.";
       sessionStorage.setItem("privatePassword", privatePassword);
     }
 
-    if (data.privateLocked && privatePassword) {
+    if (data.privateLocked && privatePassword && manualUnlockAttempt) {
       document.getElementById("privateLockMsg").textContent =
         "Sai mật khẩu. Vui lòng thử lại.";
       sessionStorage.removeItem("privatePassword");
@@ -1313,7 +1309,14 @@ async function loadData() {
     }
 
     renderData(data);
-    await loadTopDonors();
+
+    const now = Date.now();
+    const lastTopDonorLoad = Number(sessionStorage.getItem("lastTopDonorLoad") || 0);
+
+    if (now - lastTopDonorLoad > 300_000) {
+      await loadTopDonors();
+      sessionStorage.setItem("lastTopDonorLoad", String(now));
+    }
   } catch (err) {
     console.error(err);
 
@@ -1332,7 +1335,11 @@ async function loadData() {
   }
 }
 
-document.getElementById("refreshBtn").addEventListener("click", loadData);
+document.getElementById("refreshBtn").addEventListener("click", async () => {
+  await loadData();
+  await loadTopDonors();
+  sessionStorage.setItem("lastTopDonorLoad", String(Date.now()));
+});
 
 document.getElementById("unlockPrivateBtn").addEventListener("click", async () => {
   const input = document.getElementById("privatePassword");
@@ -1344,10 +1351,14 @@ document.getElementById("unlockPrivateBtn").addEventListener("click", async () =
     return;
   }
 
+  manualUnlockAttempt = true;
+
   document.getElementById("privateLockMsg").textContent =
     "Đang kiểm tra mật khẩu...";
 
   await loadData();
+
+  manualUnlockAttempt = false;
 });
 
 document.getElementById("privatePassword").addEventListener("keydown", async (e) => {
@@ -1357,6 +1368,9 @@ document.getElementById("privatePassword").addEventListener("keydown", async (e)
 });
 
 loadData();
+loadTopDonors();
+sessionStorage.setItem("lastTopDonorLoad", String(Date.now()));
+
 setInterval(loadData, 30_000);
 </script>
 </body>
