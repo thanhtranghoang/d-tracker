@@ -170,12 +170,19 @@ module.exports = async (req, res) => {
       .trim();
   }
 
+  function stripTransferPrefix(text) {
+    return cleanText(text)
+      .replace(/^(tu|từ)\s+/i, "")
+      .replace(/^vnd[\s-]*tgtt[\s-]*/i, "")
+      .replace(/^vnd[\s-]*/i, "")
+      .replace(/^--+/i, "")
+      .replace(/^\s*-\s*/i, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
   function normalizeName(name) {
-    return cleanText(name || "Ẩn danh")
-      .replace(/^Từ\s+/i, "")
-      .replace(/^VND-TGTT-/i, "")
-      .replace(/^VND--/i, "")
-      .replace(/^VND-/i, "")
+    return stripTransferPrefix(name || "Ẩn danh")
       .replace(/\s+/g, " ")
       .trim()
       .toUpperCase();
@@ -189,6 +196,8 @@ module.exports = async (req, res) => {
       t === "MOMO" ||
       t === "MBBANK IBFT" ||
       t === "MB BANK IBFT" ||
+      t === "ZION" ||
+      t === "SHOPEEPAY" ||
       t.includes("CONG TY CO PHAN ZION") ||
       t.includes("CONG TY CO PHAN SHOPEEPAY") ||
       t.includes("SHOPEEPAY") ||
@@ -200,9 +209,9 @@ module.exports = async (req, res) => {
     return cleanText(desc)
       .replace(/\bFT\d{8,}\b/gi, "")
       .replace(/\bZP\d{8,}\b/gi, "")
-      .replace(/\b[0-9A-Z]{10,}\b/g, "")
       .replace(/\bMBVCB\.[^.]+\.[^.]+\./gi, "")
       .replace(/\bCT tu\b.*$/gi, "")
+      .replace(/\b[0-9A-Z]{12,}\b/g, "")
       .replace(/\bchuyen tien qua momo\b/gi, "")
       .replace(/\bchuyen tien\b/gi, "")
       .replace(/\bscan qr\b/gi, "")
@@ -221,22 +230,51 @@ module.exports = async (req, res) => {
     const words = cleaned.split(/\s+/).filter(Boolean);
 
     const stopWords = new Set([
-      "chuc", "chúc",
-      "pn", "phuc", "nguyen", "uprize",
-      "debut", "light", "up", "the", "sky",
-      "gui", "gửi", "cho", "ung", "ủng", "ho", "hộ",
-      "project", "prj", "support", "donate",
-      "mua", "tra", "trả", "flag", "bill",
-      "cam", "on", "iu", "yeu", "thuong",
-      "thanh", "cong", "ruc", "ro"
+      "chuc",
+      "pn",
+      "phuc",
+      "nguyen",
+      "uprize",
+      "debut",
+      "light",
+      "up",
+      "the",
+      "sky",
+      "gui",
+      "cho",
+      "ung",
+      "ho",
+      "project",
+      "prj",
+      "support",
+      "donate",
+      "mua",
+      "tra",
+      "flag",
+      "bill",
+      "cam",
+      "on",
+      "iu",
+      "yeu",
+      "thuong",
+      "thanh",
+      "cong",
+      "ruc",
+      "ro",
+      "that",
+      "nha",
+      "nhe",
+      "em",
+      "be"
     ]);
 
     const picked = [];
 
     for (const word of words) {
-      const lower = word.toLowerCase();
+      const lower = cleanText(word).toLowerCase();
 
       if (stopWords.has(lower)) break;
+      if (/^\d+$/.test(lower)) break;
 
       picked.push(word);
 
@@ -272,10 +310,18 @@ module.exports = async (req, res) => {
     if (isGenericPaymentTitle(title)) {
       let channel = "DONOR";
 
-      if (normalizedTitle.includes("MOMO")) channel = "MOMO";
-      else if (normalizedTitle.includes("MBBANK") || normalizedTitle.includes("MB BANK")) channel = "MBBANK";
-      else if (normalizedTitle.includes("ZION")) channel = "ZALOPAY";
-      else if (normalizedTitle.includes("SHOPEEPAY")) channel = "SHOPEEPAY";
+      if (normalizedTitle.includes("MOMO")) {
+        channel = "MOMO";
+      } else if (
+        normalizedTitle.includes("MBBANK") ||
+        normalizedTitle.includes("MB BANK")
+      ) {
+        channel = "MBBANK";
+      } else if (normalizedTitle.includes("ZION")) {
+        channel = "ZALOPAY";
+      } else if (normalizedTitle.includes("SHOPEEPAY")) {
+        channel = "SHOPEEPAY";
+      }
 
       return inferNameFromDesc(desc, channel);
     }
@@ -292,12 +338,7 @@ module.exports = async (req, res) => {
       txn.name ||
       "Ẩn danh";
 
-    return String(title)
-      .replace(/^Từ\s+/i, "")
-      .replace(/^VND-TGTT-/i, "")
-      .replace(/^VND--/i, "")
-      .replace(/^VND-/i, "")
-      .trim();
+    return stripTransferPrefix(title || "Ẩn danh");
   }
 
   function getDesc(txn) {
@@ -588,7 +629,7 @@ module.exports = async (req, res) => {
         pageSize: PAGE_SIZE,
         maxPages: MAX_PAGES,
         paginationMode: "lastIndex",
-        donorNameMode: "infer-from-description-for-generic-payment-titles",
+        donorNameMode: "strip-tu-and-infer-from-description",
         cacheMode: canViewPrivate ? "private-memory" : "public-memory",
         cacheTtlMs: FUND_STATS_CACHE_TTL,
         firstResponsePreview: firstPreview
