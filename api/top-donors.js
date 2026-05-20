@@ -1,3 +1,10 @@
+let TOP_DONORS_CACHE = null;
+let TOP_DONORS_CACHE_TIME = 0;
+
+const TOP_DONORS_CACHE_TTL = Number(
+  process.env.TOP_DONORS_CACHE_TTL || 300_000
+);
+
 module.exports = async (req, res) => {
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -7,6 +14,20 @@ module.exports = async (req, res) => {
 
   if (req.method === "OPTIONS") {
     return res.status(200).end();
+  }
+
+  const forceRefresh = req.query?.refresh === "1";
+
+  if (
+    !forceRefresh &&
+    TOP_DONORS_CACHE &&
+    Date.now() - TOP_DONORS_CACHE_TIME < TOP_DONORS_CACHE_TTL
+  ) {
+    return res.status(200).json({
+      ...TOP_DONORS_CACHE,
+      cached: true,
+      cacheAgeMs: Date.now() - TOP_DONORS_CACHE_TIME
+    });
   }
 
   const PAGE_SIZE = Number(process.env.TIMO_PAGE_SIZE || 100);
@@ -101,27 +122,125 @@ module.exports = async (req, res) => {
     );
   }
 
+  function cleanText(text) {
+    return String(text || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
   function normalizeName(name) {
-    return String(name || "Ẩn danh")
+    return cleanText(name || "Ẩn danh")
       .replace(/^Từ\s+/i, "")
       .replace(/^VND-TGTT-/i, "")
       .replace(/^VND--/i, "")
       .replace(/^VND-/i, "")
-      .replace(/^MOMOIBFT/i, "MOMO")
       .replace(/\s+/g, " ")
       .trim()
       .toUpperCase();
   }
 
+  function isGenericPaymentTitle(title) {
+    const t = normalizeName(title);
+
+    return (
+      t === "MOMOIBFT" ||
+      t === "MOMO" ||
+      t === "MBBANK IBFT" ||
+      t === "MB BANK IBFT" ||
+      t.includes("CONG TY CO PHAN ZION") ||
+      t.includes("CONG TY CO PHAN SHOPEEPAY") ||
+      t.includes("SHOPEEPAY") ||
+      t.includes("ZION")
+    );
+  }
+
+  function removeTransferCodes(desc) {
+    return cleanText(desc)
+      .replace(/\bFT\d{8,}\b/gi, "")
+      .replace(/\bZP\d{8,}\b/gi, "")
+      .replace(/\b[0-9A-Z]{10,}\b/g, "")
+      .replace(/\bMBVCB\.[^.]+\.[^.]+\./gi, "")
+      .replace(/\bCT tu\b.*$/gi, "")
+      .replace(/\bchuyen tien qua momo\b/gi, "")
+      .replace(/\bchuyen tien\b/gi, "")
+      .replace(/\bscan qr\b/gi, "")
+      .replace(/\bung ho\b/gi, "")
+      .replace(/\bdonate\b/gi, "")
+      .replace(/\bsupport\b/gi, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function inferNameFromDesc(desc, fallbackChannel) {
+    const cleaned = removeTransferCodes(desc);
+
+    if (!cleaned) return fallbackChannel;
+
+    const words = cleaned.split(/\s+/).filter(Boolean);
+
+    const stopWords = new Set([
+      "chuc", "chúc",
+      "pn", "phuc", "nguyen", "uprize",
+      "debut", "light", "up", "the", "sky",
+      "gui", "gửi", "cho", "ung", "ủng", "ho", "hộ",
+      "project", "prj", "support", "donate",
+      "mua", "tra", "trả", "flag", "bill",
+      "cam", "on", "iu", "yeu", "thuong",
+      "thanh", "cong", "ruc", "ro"
+    ]);
+
+    const picked = [];
+
+    for (const word of words) {
+      const lower = word.toLowerCase();
+
+      if (stopWords.has(lower)) break;
+
+      picked.push(word);
+
+      if (picked.length >= 3) break;
+    }
+
+    if (picked.length > 0) {
+      return normalizeName(picked.join(" "));
+    }
+
+    return normalizeName(`${fallbackChannel} - ${cleaned.slice(0, 60)}`);
+  }
+
   function getName(txn) {
-    return normalizeName(
+    const title =
       txn.txnTitle ||
       txn.counterpartName ||
       txn.senderName ||
       txn.fullName ||
       txn.name ||
-      "Ẩn danh"
-    );
+      "";
+
+    const desc =
+      txn.txnDesc ||
+      txn.description ||
+      txn.memo ||
+      txn.content ||
+      txn.remark ||
+      "";
+
+    const normalizedTitle = normalizeName(title);
+
+    if (isGenericPaymentTitle(title)) {
+      let channel = "DONOR";
+
+      if (normalizedTitle.includes("MOMO")) channel = "MOMO";
+      else if (normalizedTitle.includes("MBBANK") || normalizedTitle.includes("MB BANK")) channel = "MBBANK";
+      else if (normalizedTitle.includes("ZION")) channel = "ZALOPAY";
+      else if (normalizedTitle.includes("SHOPEEPAY")) channel = "SHOPEEPAY";
+
+      return inferNameFromDesc(desc, channel);
+    }
+
+    return normalizeName(title || "Ẩn danh");
   }
 
   function isOnOrAfterStartDate(txn) {
@@ -239,7 +358,7 @@ module.exports = async (req, res) => {
       (d) => d.amount >= 500000 && d.amount < 2000000
     );
 
-    return res.status(200).json({
+    const payload = {
       success: true,
 
       top3,
@@ -247,7 +366,6 @@ module.exports = async (req, res) => {
       over2m,
       over500k,
 
-      // Alias cũ để HTML cũ không bị vỡ nếu còn gọi over5m
       over5m: over3m,
 
       donorCount: donors.length,
@@ -264,8 +382,20 @@ module.exports = async (req, res) => {
         pageSize: PAGE_SIZE,
         maxPages: MAX_PAGES,
         paginationMode: "lastIndex",
-        bucketMode: "exclusive"
+        bucketMode: "exclusive",
+        donorNameMode: "infer-from-description-for-generic-payment-titles",
+        cacheMode: "memory",
+        cacheTtlMs: TOP_DONORS_CACHE_TTL
       }
+    };
+
+    TOP_DONORS_CACHE = payload;
+    TOP_DONORS_CACHE_TIME = Date.now();
+
+    return res.status(200).json({
+      ...payload,
+      cached: false,
+      cacheAgeMs: 0
     });
   } catch (error) {
     console.error("Top donors API error:", error);
