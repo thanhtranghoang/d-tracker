@@ -34,7 +34,7 @@ module.exports = async (req, res) => {
     process.env.RAISED_TRACK_FROM_DATETIME || "2026-05-19T13:40:00+07:00";
 
   const TARGET_AMOUNT = Number(
-    process.env.TARGET_AMOUNT || 150000000
+    process.env.TARGET_AMOUNT || 170000000
   );
 
   const TOP_DONOR_FROM_DATE =
